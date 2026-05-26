@@ -8,6 +8,7 @@ from typing import Dict, List
 
 from parser import parse_scene
 from rules import build_cinematic_prompt, determine_camera_movement, determine_shot_rule
+from llm import process_prompt_with_llm
 
 
 class ShotPlanner:
@@ -38,10 +39,12 @@ class ShotPlanner:
             shot_number = idx + 1
             camera_movement = determine_camera_movement(actions)
             description = (
-                f"Shot {shot_number}: {shot_type} of {characters[0]} in a {primary_location}. "
-                f"Focus on cinematic storytelling with {camera_movement} movement."
+                f"镜头{shot_number}：{shot_type}，主体为{characters[0]}，场景在{primary_location}。"
+                f"着重电影叙事，摄像机采用{camera_movement}。"
             )
-            prompt = build_cinematic_prompt(base_rule, primary_location, characters)
+            raw_prompt = build_cinematic_prompt(base_rule, primary_location, characters)
+            processed = process_prompt_with_llm(raw_prompt)
+            final_prompt = processed.get("content", raw_prompt)
 
             shots.append(
                 {
@@ -49,7 +52,9 @@ class ShotPlanner:
                     "type": shot_type,
                     "description": description,
                     "camera_movement": camera_movement,
-                    "prompt": prompt,
+                    "raw_prompt": raw_prompt,
+                    "final_prompt": final_prompt,
+                    "llm_reasoning": processed.get("reasoning_details", {}),
                     "reason": base_rule["reason"],
                 }
             )

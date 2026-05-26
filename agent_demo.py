@@ -4,8 +4,8 @@ from planner import plan_shots
 
 def main() -> None:
     prompt = (
-        "A hero runs through a dark city alley, chased by a mysterious figure. "
-        "He looks terrified and then turns to face his pursuer."
+        "主角在黑暗的城市小巷中奔跑，被神秘身影追赶。"
+        "他满脸惊恐，然后转身面对追击者。"
     )
     result = plan_shots(prompt, count=3)
     print("Parsed:")

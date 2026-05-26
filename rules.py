@@ -9,39 +9,39 @@ from typing import Dict, List
 SHOT_RULES = [
     {
         "match": ["pursuit", "movement"],
-        "shot_type": "tracking shot",
-        "reason": "Action and motion suggest a dynamic tracking sequence.",
+        "shot_type": "追踪镜头",
+        "reason": "动作与运动暗示需要动态追踪镜头。",
     },
     {
         "match": ["conflict"],
-        "shot_type": "wide shot",
-        "reason": "Conflict scenes benefit from broader context and environment.",
+        "shot_type": "远景",
+        "reason": "冲突场景需要更广阔的环境来展示张力。",
     },
     {
         "match": ["dialogue"],
-        "shot_type": "two-shot",
-        "reason": "Conversation between characters is best shown with a two-shot.",
+        "shot_type": "双人镜",
+        "reason": "角色对话适合双人镜头表现交流。",
     },
     {
         "match": ["intimacy", "affection", "joy"],
-        "shot_type": "close-up",
-        "reason": "Emotional detail requires a close-up to capture expression.",
+        "shot_type": "特写",
+        "reason": "情感细节适合通过特写表现面部表情。",
     },
     {
         "match": ["fear", "sadness", "anger"],
-        "shot_type": "close-up",
-        "reason": "Strong emotion is emphasized through intimate framing.",
+        "shot_type": "特写",
+        "reason": "强烈情绪需要亲密构图来放大情感。",
     },
     {
         "match": ["transition"],
-        "shot_type": "establishing shot",
-        "reason": "Location or movement transitions need a clear establishing shot.",
+        "shot_type": "场景镜头",
+        "reason": "场景变化需要明确的环境过渡镜头。",
     },
 ]
 
 DEFAULT_SHOT = {
-    "shot_type": "medium shot",
-    "reason": "A balanced framing provides visual clarity for general story beats.",
+    "shot_type": "中景",
+    "reason": "中等镜头提供一般情节的清晰视觉表达。",
 }
 
 
@@ -55,15 +55,15 @@ def determine_shot_rule(actions: List[str], emotions: List[str]) -> Dict[str, st
 
 def determine_camera_movement(actions: List[str]) -> str:
     if "movement" in actions or "pursuit" in actions or "conflict" in actions:
-        return "dolly"
+        return "推轨"
     if "dialogue" in actions:
-        return "slow push-in"
-    return "static"
+        return "缓慢推进"
+    return "静止"
 
 
 def build_cinematic_prompt(shot: Dict[str, str], location: str, characters: List[str]) -> str:
-    subject = characters[0] if characters else "a figure"
+    subject = characters[0] if characters else "主角"
     return (
-        f"{shot['shot_type']} of {subject} in a {location} with {shot['reason'].lower()} "
-        "cinematic lighting, film grain, high contrast, realistic detail"
+        f"{shot['shot_type']}，主体为{subject}，地点在{location}。{shot['reason']} "
+        "保持电影质感灯光、胶片颗粒、高对比、写实细节。"
     )
