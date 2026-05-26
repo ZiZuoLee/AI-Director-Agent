@@ -44,7 +44,7 @@ class ShotPlanner:
             )
             raw_prompt = build_cinematic_prompt(base_rule, primary_location, characters)
             processed = process_prompt_with_llm(raw_prompt)
-            final_prompt = processed.get("content", raw_prompt)
+            final_prompt = processed.get("prompt", raw_prompt)
 
             shots.append(
                 {
@@ -53,8 +53,8 @@ class ShotPlanner:
                     "description": description,
                     "camera_movement": camera_movement,
                     "raw_prompt": raw_prompt,
-                    "final_prompt": final_prompt,
-                    "llm_reasoning": processed.get("reasoning_details", {}),
+                    "prompt": final_prompt,
+                    "llm_json": processed,
                     "reason": base_rule["reason"],
                 }
             )
