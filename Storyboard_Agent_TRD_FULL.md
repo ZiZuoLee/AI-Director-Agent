@@ -22,8 +22,9 @@ System Layer（C）
 - parser.py
 - planner.py
 - rules.py
+- llm.py
 
-✅ Part A implementation complete: base parser, shot planner, and rule engine added.
+✅ Part A implementation complete: 基于中文提示的解析、分镜规划和规则引擎已完成，并增加了Task C风格的LLM处理模拟。当前LLM集成使用 `OPENROUTER_API_KEY` 环境变量，当未配置时回退到本地模拟输出。
 
 ---
 
