@@ -23,6 +23,8 @@ System Layer（C）
 - planner.py
 - rules.py
 
+✅ Part A implementation complete: base parser, shot planner, and rule engine added.
+
 ---
 
 ### Generation Layer（B）
