@@ -5,7 +5,7 @@ Final Course Project of Fudan University Computer Graph A
 
 Follow this branching workflow for all development:
 
-- Create a local feature/fix branch from `main`:
+- Create a local feature/fix branch from `pre`:
 
 ```bash
 git checkout -b feature/your-feature
