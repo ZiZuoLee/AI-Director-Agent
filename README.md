@@ -20,7 +20,7 @@ The project will load `OPENROUTER_API_KEY` from `.env` at runtime.
 
 Follow this branching workflow for all development:
 
-- Create a local feature/fix branch from `main`:
+- Create a local feature/fix branch from `pre`:
 
 ```bash
 git checkout -b feature/your-feature
