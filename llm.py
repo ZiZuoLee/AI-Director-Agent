@@ -1,7 +1,7 @@
 """LLM integration layer for Chinese prompt design that returns JSON structure.
 
-This module loads OPENROUTER_API_KEY from the environment or a local `.env` file.
-It sends Chinese prompt design instructions to OpenRouter and parses a JSON
+This module loads API configuration from the environment or a local `.env` file.
+It sends Chinese prompt design instructions to a Chat Completions-compatible API and parses a JSON
 response suitable for Task B consumption.
 """
 from __future__ import annotations
@@ -16,8 +16,8 @@ try:
 except ImportError:  # pragma: no cover
     requests = None
 
-LLM_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-LLM_MODEL = "deepseek/deepseek-v4-flash:free"
+DEFAULT_LLM_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_LLM_MODEL = "deepseek/deepseek-v4-flash:free"
 DOTENV_PATH = ".env"
 
 
@@ -54,13 +54,16 @@ def _parse_json(content: str) -> Dict[str, object]:
 
 def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
     load_dotenv()
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "OPENROUTER_API_KEY 未配置。请在 .env 或环境变量中设置。"
+            "LLM_API_KEY 或 OPENROUTER_API_KEY 未配置。请在 .env 或环境变量中设置。"
         )
     if requests is None:
-        raise RuntimeError("缺少 requests 包，无法调用 OpenRouter API。")
+        raise RuntimeError("缺少 requests 包，无法调用 LLM API。")
+
+    llm_api_url = os.getenv("LLM_API_URL", DEFAULT_LLM_API_URL)
+    llm_model = os.getenv("LLM_MODEL", DEFAULT_LLM_MODEL)
 
     messages = [
         {
@@ -79,13 +82,13 @@ def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": LLM_MODEL,
+        "model": llm_model,
         "messages": messages,
         "reasoning": {"enabled": True},
     }
 
     response = requests.post(
-        url=LLM_API_URL,
+        url=llm_api_url,
         headers=headers,
         data=json.dumps(payload, ensure_ascii=False),
         timeout=20,
