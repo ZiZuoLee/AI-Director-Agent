@@ -18,6 +18,10 @@ Core files:
 - `generation_types.py`: shared schemas, config, and validation
 - `backends/zenmux_api.py`: ZenMux Gemini image generation backend
 - `test_zenmux_api.py`: direct smoke test that bypasses the parser/planner/LLM stack
+- `director_memory.py`: cross-shot memory for characters and scenes
+- `image_critic.py`: candidate scoring and ranking
+- `director_agent.py`: director loop with retries, strategy selection, and reflection logs
+- `test_director_agent.py`: full agent-mode smoke test using candidate search and edit-based continuity
 
 Example usage:
 
@@ -55,6 +59,17 @@ images = generate_images(
 To change models, update `model_id` in config to any ZenMux Vertex image model you want to try.
 
 The API key is read from `ZENMUX_API_KEY` in the environment or from `zenmux.env`.
+
+## Director Agent
+
+For a more agentic pipeline, use `generate_images_agentic(...)` or run `test_director_agent.py`.
+The director agent adds:
+
+- cross-shot character and scene memory
+- candidate generation and ranking
+- retry loops with strategy selection
+- edit-image continuity passes using prior frames as references
+- reflection logs for each shot
 
 ## Environment Setup
 

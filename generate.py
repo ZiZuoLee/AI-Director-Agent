@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Mapping, Sequence
 
 from backends import ZenMuxImageBackend
+from director_agent import DirectorAgent
 from generation_types import GeneratedImage, GenerationConfig, GenerationError, PromptSpec, ShotContext
 from prompt_gen import build_prompt_specs
 
@@ -59,3 +60,14 @@ def generate_from_plan(
     backend = _build_backend(generation_config)
     generated_images = backend.generate(prompt_specs)
     return [image.to_dict() for image in generated_images]
+
+
+def generate_images_agentic(
+    shots: Sequence[Mapping[str, Any] | ShotContext],
+    config: GenerationConfig | Mapping[str, Any] | None = None,
+) -> Dict[str, Any]:
+    """Run the full director-agent loop with memory, ranking, retries, and reflections."""
+
+    generation_config = _normalize_config(config)
+    agent = DirectorAgent(generation_config)
+    return agent.run(shots)

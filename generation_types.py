@@ -127,7 +127,7 @@ class GenerationConfig:
     """Runtime configuration shared by all backends."""
 
     backend: str = "zenmux_api"
-    model_id: str = "google/gemini-2.5-flash-image-free"
+    model_id: str = "bytedance/doubao-seedream-5.0-lite"
     output_dir: Path = Path("images")
     image_format: str = "png"
     width: int = 1024
@@ -151,7 +151,19 @@ class GenerationConfig:
     zenmux_output_mime_type: str = "image/png"
     zenmux_output_compression_quality: Optional[int] = None
     zenmux_seed: Optional[int] = None
+    zenmux_enhance_prompt: bool = False
+    zenmux_person_generation: Optional[str] = None
     zenmux_user: Optional[str] = None
+    vision_enabled: bool = True
+    vision_api_url: str = "https://zenmux.ai/api/v1/chat/completions"
+    vision_model: str = "z-ai/glm-4.6v-flash-free"
+    vision_api_key: Optional[str] = None
+    vision_env_path: Path = Path(".env")
+    vision_shortlist_size: int = 1
+    candidate_count: int = 3
+    max_attempts: int = 2
+    score_threshold: float = 0.7
+    edit_model_id: Optional[str] = None
 
     @classmethod
     def from_mapping(cls, overrides: Optional[Mapping[str, Any]] = None) -> "GenerationConfig":
@@ -208,8 +220,23 @@ class GenerationConfig:
         if zenmux_seed is not None:
             zenmux_seed = _normalize_int(zenmux_seed, cls.seed, "zenmux_seed", minimum=0)
 
+        zenmux_person_generation = _optional_string(
+            data.get("zenmux_person_generation", cls.zenmux_person_generation),
+            "zenmux_person_generation",
+        )
+        if zenmux_person_generation is not None and zenmux_person_generation not in {"allow_adult", "allow_all", "dont_allow"}:
+            raise GenerationError(
+                "zenmux_person_generation must be one of: allow_adult, allow_all, dont_allow."
+            )
+
         env_path_value = data.get("zenmux_env_path", cls.zenmux_env_path)
         zenmux_env_path = env_path_value if isinstance(env_path_value, Path) else Path(str(env_path_value))
+        vision_env_path_value = data.get("vision_env_path", cls.vision_env_path)
+        vision_env_path = (
+            vision_env_path_value
+            if isinstance(vision_env_path_value, Path)
+            else Path(str(vision_env_path_value))
+        )
 
         return cls(
             backend=str(data.get("backend", cls.backend)).strip() or cls.backend,
@@ -245,7 +272,45 @@ class GenerationConfig:
             zenmux_output_mime_type=zenmux_output_mime_type,
             zenmux_output_compression_quality=zenmux_output_compression_quality,
             zenmux_seed=zenmux_seed,
+            zenmux_enhance_prompt=bool(data.get("zenmux_enhance_prompt", cls.zenmux_enhance_prompt)),
+            zenmux_person_generation=zenmux_person_generation,
             zenmux_user=_optional_string(data.get("zenmux_user"), "zenmux_user"),
+            vision_enabled=bool(data.get("vision_enabled", cls.vision_enabled)),
+            vision_api_url=_require_non_empty_string(
+                data.get("vision_api_url", cls.vision_api_url),
+                "vision_api_url",
+            ),
+            vision_model=_require_non_empty_string(
+                data.get("vision_model", cls.vision_model),
+                "vision_model",
+            ),
+            vision_api_key=_optional_string(data.get("vision_api_key"), "vision_api_key"),
+            vision_env_path=vision_env_path,
+            vision_shortlist_size=_normalize_int(
+                data.get("vision_shortlist_size"),
+                cls.vision_shortlist_size,
+                "vision_shortlist_size",
+                minimum=1,
+            ),
+            candidate_count=_normalize_int(
+                data.get("candidate_count"),
+                cls.candidate_count,
+                "candidate_count",
+                minimum=1,
+            ),
+            max_attempts=_normalize_int(
+                data.get("max_attempts"),
+                cls.max_attempts,
+                "max_attempts",
+                minimum=1,
+            ),
+            score_threshold=_normalize_float(
+                data.get("score_threshold"),
+                cls.score_threshold,
+                "score_threshold",
+                minimum=0.0,
+            ),
+            edit_model_id=_optional_string(data.get("edit_model_id", cls.edit_model_id), "edit_model_id"),
         )
 
 
