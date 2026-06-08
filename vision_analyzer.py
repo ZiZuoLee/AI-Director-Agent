@@ -12,6 +12,7 @@ from openai import OpenAI
 
 from director_memory import DirectorMemory
 from generation_types import GenerationConfig, GenerationError, ShotContext
+from llm import parse_llm_json_object
 
 
 @dataclass
@@ -108,8 +109,8 @@ class VisionAnalyzer:
                 }
             ],
         )
-        content = completion.choices[0].message.content
-        parsed = json.loads(content)
+        content = completion.choices[0].message.content or ""
+        parsed = parse_llm_json_object(content)
         return VisionAnalysis(
             score=float(parsed.get("score", 0.0)),
             character_consistency=float(parsed.get("character_consistency", 0.0)),

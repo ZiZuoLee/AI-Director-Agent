@@ -71,6 +71,59 @@ The director agent adds:
 - edit-image continuity passes using prior frames as references
 - reflection logs for each shot
 
+## Web UI
+
+The project includes a React frontend and FastAPI backend for interactive storyboard generation.
+
+### Start the backend
+
+Image generation requires `zenmux.env` with `ZENMUX_API_KEY`. Shot planning uses `OPENROUTER_API_KEY` in `.env`.
+
+```bash
+pip install -r requirements.txt
+```
+
+For real image generation, prefer the helper script (disables broken proxies and avoids hot-reload interruptions):
+
+```powershell
+.\start_backend.ps1
+```
+
+Manual start:
+
+```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+### Start the frontend (development)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:5173`. Vite proxies `/api` requests to the backend on port `8000`.
+
+### Production build
+
+```bash
+cd frontend
+npm run build
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+After building, FastAPI serves the compiled UI from `frontend/dist/`.
+
+### API endpoints
+
+- `GET /api/health`
+- `POST /api/plan` — shot planning only
+- `POST /api/generate` — async full pipeline (`mode`: `simple` or `agentic`)
+- `GET /api/tasks/{task_id}` — task status/result
+- `GET /api/tasks/{task_id}/events` — SSE progress stream
+- `GET /api/images/{filename}` — generated image files
+
 ## Environment Setup
 
 Copy `.env.example` to `.env` and fill in your OpenRouter API key:
