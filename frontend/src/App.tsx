@@ -204,49 +204,53 @@ export default function App() {
           )}
         </div>
 
-        <div className="space-y-4">
-          <div className="flex gap-2 rounded-2xl border border-white/10 bg-cinema-900/50 p-2">
-            {([
-              ["plan", "分镜规划"],
-              ["images", "生成图像"],
-              ["agent", "Agent 日志"],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setActiveTab(key)}
-                className={`flex-1 rounded-xl px-3 py-2 text-sm transition ${
-                  activeTab === key
-                    ? "bg-cinema-accent text-cinema-950 font-semibold"
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="flex min-h-[32rem] flex-col overflow-hidden rounded-2xl border border-white/10 bg-cinema-900/30 lg:min-h-[calc(100vh-10rem)] lg:max-h-[calc(100vh-10rem)]">
+          <div className="sticky top-0 z-20 shrink-0 border-b border-white/10 bg-cinema-950/90 p-2 backdrop-blur">
+            <div className="flex gap-2">
+              {([
+                ["plan", "分镜规划"],
+                ["images", "生成图像"],
+                ["agent", "Agent 日志"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveTab(key)}
+                  className={`flex-1 rounded-xl px-3 py-2.5 text-sm transition ${
+                    activeTab === key
+                      ? "bg-cinema-accent text-cinema-950 font-semibold"
+                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {activeTab === "plan" && (
-            <>
-              <ParsedPanel parsed={plan?.parsed ?? null} />
-              <ShotPlanPanel shots={plan?.shots ?? []} />
-            </>
-          )}
+          <div className="cinema-scroll min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+            {activeTab === "plan" && (
+              <>
+                <ParsedPanel parsed={plan?.parsed ?? null} />
+                <ShotPlanPanel shots={plan?.shots ?? []} />
+              </>
+            )}
 
-          {activeTab === "images" && (
-            <>
-              <StoryboardView storyboardUrl={storyboardUrl} />
-              <ImageGallery images={images} />
-            </>
-          )}
+            {activeTab === "images" && (
+              <>
+                <StoryboardView storyboardUrl={storyboardUrl} />
+                <ImageGallery images={images} />
+              </>
+            )}
 
-          {activeTab === "agent" && <AgentPanel agentResult={agentResult} />}
+            {activeTab === "agent" && <AgentPanel agentResult={agentResult} />}
 
-          {!plan && !loading && (
-            <section className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-sm text-gray-500">
-              输入剧本并点击「开始生成分镜」，结果将在这里展示。
-            </section>
-          )}
+            {!plan && !loading && (
+              <section className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-sm text-gray-500">
+                输入剧本并点击「开始生成分镜」，结果将在这里展示。
+              </section>
+            )}
+          </div>
         </div>
       </main>
     </div>

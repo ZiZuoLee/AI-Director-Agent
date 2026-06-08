@@ -14,6 +14,26 @@ interface PromptPanelProps {
 const SAMPLE_TEXT =
   "主角在黑暗的城市小巷中奔跑，被神秘身影追赶。他满脸惊恐，然后转身面对追击者。";
 
+const MODE_OPTIONS: Array<{
+  id: GenerationMode;
+  title: string;
+  description: string;
+  badge: string;
+}> = [
+  {
+    id: "simple",
+    title: "简单模式",
+    description: "按分镜逐镜出图，速度更快，适合先验证效果。",
+    badge: "推荐",
+  },
+  {
+    id: "agentic",
+    title: "导演模式",
+    description: "启用跨镜记忆、候选评分与自动重试，质量更高但更慢。",
+    badge: "高级",
+  },
+];
+
 export default function PromptPanel({
   text,
   shotCount,
@@ -47,51 +67,65 @@ export default function PromptPanel({
         填入示例剧本
       </button>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+      <div className="mt-5 space-y-5">
         <label className="block text-sm text-gray-300">
-          镜头数量
+          <span className="font-medium text-white">镜头数量</span>
           <input
             type="range"
             min={1}
             max={5}
             value={shotCount}
             onChange={(event) => onShotCountChange(Number(event.target.value))}
-            className="mt-2 w-full accent-cinema-accent"
+            className="mt-3 w-full accent-cinema-accent"
           />
-          <span className="mt-1 inline-block text-cinema-accent">{shotCount} 镜</span>
+          <span className="mt-2 inline-flex rounded-full border border-cinema-accent/30 bg-cinema-accent/10 px-3 py-1 text-sm text-cinema-accent">
+            {shotCount} 镜
+          </span>
         </label>
 
-        <fieldset className="text-sm text-gray-300">
-          <legend className="mb-2">生成模式</legend>
-          <div className="flex gap-3">
-            <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-cinema-950 px-3 py-2">
-              <input
-                type="radio"
-                name="mode"
-                value="simple"
-                checked={mode === "simple"}
-                onChange={() => onModeChange("simple")}
-              />
-              <span>
-                <span className="block font-medium text-white">简单模式</span>
-                <span className="text-xs text-gray-500">快速出图</span>
-              </span>
-            </label>
-            <label className="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-cinema-950 px-3 py-2">
-              <input
-                type="radio"
-                name="mode"
-                value="agentic"
-                checked={mode === "agentic"}
-                onChange={() => onModeChange("agentic")}
-              />
-              <span>
-                <span className="block font-medium text-white">导演模式</span>
-                <span className="text-xs text-gray-500">记忆 + 评分 + 重试</span>
-              </span>
-            </label>
+        <div>
+          <p className="text-sm font-medium text-white">生成模式</p>
+          <div className="mt-3 space-y-2">
+            {MODE_OPTIONS.map((option) => {
+              const selected = mode === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onModeChange(option.id)}
+                  className={`w-full rounded-xl border p-4 text-left transition ${
+                    selected
+                      ? "border-cinema-accent/60 bg-cinema-accent/10 shadow-[0_0_0_1px_rgba(232,184,109,0.15)]"
+                      : "border-white/10 bg-cinema-950 hover:border-white/20"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block h-2.5 w-2.5 rounded-full ${
+                            selected ? "bg-cinema-accent" : "bg-gray-600"
+                          }`}
+                        />
+                        <span className="font-medium text-white">{option.title}</span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-gray-400">{option.description}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                        selected
+                          ? "bg-cinema-accent text-cinema-950"
+                          : "border border-white/10 text-gray-500"
+                      }`}
+                    >
+                      {option.badge}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-        </fieldset>
+        </div>
       </div>
 
       <button

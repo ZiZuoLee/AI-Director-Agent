@@ -41,7 +41,10 @@ def _default_generation_config(task_id: str, overrides: Mapping[str, Any] | None
 
 
 def _image_url(image_path: str) -> str:
-    return f"/api/images/{Path(image_path).name}"
+    path = Path(image_path)
+    if path.parent.name and path.parent.parent.name == "images":
+        return f"/api/images/{path.parent.name}/{path.name}"
+    return f"/api/images/legacy/{path.name}"
 
 
 def _attach_image_urls(images: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

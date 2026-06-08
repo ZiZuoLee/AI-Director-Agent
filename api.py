@@ -255,13 +255,26 @@ async def stream_task_events(task_id: str):
     return EventSourceResponse(event_generator())
 
 
-@app.get("/api/images/{filename}")
-def get_image(filename: str):
+@app.get("/api/images/{task_id}/{filename}")
+def get_task_image(task_id: str, filename: str):
+    safe_name = Path(filename).name
+    if safe_name != filename or ".." in task_id or "/" in task_id or "\\" in task_id:
+        raise HTTPException(status_code=400, detail="Invalid image path")
+
+    image_path = IMAGES_DIR / task_id / safe_name
+    if not image_path.exists():
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return FileResponse(image_path, media_type="image/png")
+
+
+@app.get("/api/images/legacy/{filename}")
+def get_legacy_image(filename: str):
     safe_name = Path(filename).name
     if safe_name != filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    candidates = list(IMAGES_DIR.rglob(safe_name))
+    candidates = sorted(IMAGES_DIR.rglob(safe_name), key=lambda path: path.stat().st_mtime, reverse=True)
     if not candidates:
         raise HTTPException(status_code=404, detail="Image not found")
 

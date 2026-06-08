@@ -80,7 +80,7 @@ export default function AgentPanel({ agentResult }: AgentPanelProps) {
 
       <details className="mt-4 text-xs text-gray-400">
         <summary className="cursor-pointer text-cinema-accent">查看跨镜头记忆 JSON</summary>
-        <pre className="mt-2 overflow-x-auto rounded-lg bg-black/40 p-3">
+        <pre className="cinema-scroll mt-2 max-h-64 overflow-auto rounded-lg border border-white/5 bg-black/40 p-3">
           {JSON.stringify(agentResult.memory, null, 2)}
         </pre>
       </details>

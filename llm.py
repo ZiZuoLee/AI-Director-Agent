@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from typing import Dict
+from typing import Dict, Optional
 
 try:
     import requests
@@ -58,12 +58,36 @@ def _strip_code_fence(text: str) -> str:
     return stripped.strip()
 
 
-def _extract_json_string(text: str) -> str:
+def _extract_first_json_object(text: str) -> Dict[str, object]:
+    """Parse the first JSON object from LLM output, ignoring trailing commentary."""
+
     cleaned = _strip_code_fence(text)
-    match = re.search(r"(\{.*\})", cleaned, re.S)
-    if not match:
-        raise ValueError("无法从 LLM 响应中提取 JSON。")
-    return match.group(1)
+    decoder = json.JSONDecoder()
+    candidates = [
+        cleaned,
+        _sanitize_json_control_chars(cleaned),
+        cleaned.replace("'", '"'),
+        _sanitize_json_control_chars(cleaned.replace("'", '"')),
+    ]
+
+    last_error: json.JSONDecodeError | ValueError | None = None
+    for candidate in candidates:
+        for index, char in enumerate(candidate):
+            if char != "{":
+                continue
+            try:
+                parsed, _end = decoder.raw_decode(candidate, idx=index)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError as exc:
+                last_error = exc
+
+    try:
+        return _fallback_parse_fields(cleaned)
+    except ValueError as exc:
+        if last_error is not None:
+            raise last_error from exc
+        raise ValueError("无法从 LLM 响应中提取 JSON。") from exc
 
 
 def _sanitize_json_control_chars(content: str) -> str:
@@ -125,31 +149,54 @@ def _fallback_parse_fields(content: str) -> Dict[str, object]:
     return fields
 
 
-def _parse_json(content: str) -> Dict[str, object]:
-    candidates = [
-        content,
-        _sanitize_json_control_chars(content),
-        content.replace("'", '"'),
-        _sanitize_json_control_chars(content.replace("'", '"')),
-    ]
-    last_error: json.JSONDecodeError | None = None
-    for candidate in candidates:
-        try:
-            parsed = json.loads(candidate)
-            if isinstance(parsed, dict):
-                return parsed
-        except json.JSONDecodeError as exc:
-            last_error = exc
+def parse_llm_json_object(content: str) -> Dict[str, object]:
+    """Public helper for parsing the first JSON object from model text."""
 
-    try:
-        return _fallback_parse_fields(content)
-    except ValueError as exc:
-        if last_error is not None:
-            raise last_error from exc
-        raise
+    return _extract_first_json_object(content)
 
 
-def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
+def _build_llm_instruction(
+    prompt: str,
+    *,
+    story_text: str = "",
+    shot_number: int = 1,
+    shot_count: int = 1,
+    story_beat: str = "",
+    character_anchor: str = "",
+) -> str:
+    anchor_section = (
+        f"\n已确立的角色外貌（后续镜头必须完全一致）：{character_anchor}\n"
+        if character_anchor
+        else ""
+    )
+    return (
+        "你是电影分镜设计师，面向中文绘图模型（如豆包 Seedream）设计镜头。\n"
+        "请输出一个 JSON 对象，字段名保持英文：shot_type, camera_movement, prompt, description, reason。\n"
+        "但所有字段的值必须使用中文。\n\n"
+        "硬性要求：\n"
+        "1. prompt 字段必须是 50-120 字的中文绘图提示词，可直接送入中文图像模型；\n"
+        "2. prompt 中必须写出具体角色外貌（年龄、性别、发型、服装），禁止只写“他/她/主角”；\n"
+        "3. prompt 中必须包含场景、时间、光线、镜头景别、构图与情绪；\n"
+        "4. 多镜头时，角色外貌描述在所有镜头中保持一致，但每镜动作与构图必须不同；\n"
+        "5. 禁止在 prompt 中混入英文单词；\n"
+        "6. 仅返回一个 JSON 对象，不要 Markdown，不要输出 JSON 之外的任何说明文字。\n\n"
+        f"故事全文：{story_text or '（未提供）'}\n"
+        f"当前镜头：第 {shot_number}/{shot_count} 镜\n"
+        f"本镜叙事重点：{story_beat or '（沿用故事全文）'}\n"
+        f"{anchor_section}"
+        f"规则引擎提示：{prompt}"
+    )
+
+
+def process_prompt_with_llm(
+    prompt: str,
+    *,
+    story_text: str = "",
+    shot_number: int = 1,
+    shot_count: int = 1,
+    story_beat: str = "",
+    character_anchor: str = "",
+) -> Dict[str, object]:
     load_dotenv()
     api_key = os.getenv("LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     if not api_key:
@@ -165,11 +212,13 @@ def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
     messages = [
         {
             "role": "user",
-            "content": (
-                "你是电影分镜设计师。请根据以下中文镜头提示输出一个JSON对象，"
-                "该对象包含字段 shot_type, camera_movement, prompt, description, reason。"
-                "仅返回单行合法JSON，字符串内不要换行，不要Markdown或额外解释。"
-                "\n\n提示内容：\n" + prompt
+            "content": _build_llm_instruction(
+                prompt,
+                story_text=story_text,
+                shot_number=shot_number,
+                shot_count=shot_count,
+                story_beat=story_beat,
+                character_anchor=character_anchor,
             ),
         }
     ]
@@ -197,8 +246,7 @@ def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
     data = response.json()
     message = data["choices"][0]["message"]
     content = message.get("content", "")
-    json_text = _extract_json_string(content)
-    parsed = _parse_json(json_text)
+    parsed = _extract_first_json_object(content)
 
     parsed["raw_llm_content"] = content
     parsed["reasoning_details"] = message.get("reasoning_details", {})

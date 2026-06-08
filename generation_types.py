@@ -136,8 +136,7 @@ class GenerationConfig:
     guidance_scale: float = 0.0
     negative_prompt: str = ""
     prompt_suffix: str = (
-        "cinematic storyboard frame, coherent character identity, dramatic lighting, "
-        "careful composition, realistic materials, production-ready visual direction"
+        "电影分镜风格，角色外貌保持一致，电影感灯光，戏剧化构图，高对比，写实细节，16:9横构图"
     )
     style_preset: str = "cinematic_storyboard"
     seed: int = 20260605

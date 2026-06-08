@@ -1,12 +1,13 @@
 import { useState } from "react";
 import type { ShotPlan } from "../types";
+import ExpandableText from "./ExpandableText";
 
 interface ShotPlanPanelProps {
   shots: ShotPlan[];
 }
 
 function ShotCard({ shot }: { shot: ShotPlan }) {
-  const [expanded, setExpanded] = useState(false);
+  const [jsonExpanded, setJsonExpanded] = useState(false);
 
   return (
     <article className="rounded-xl border border-white/10 bg-cinema-950/80 p-4">
@@ -15,7 +16,7 @@ function ShotCard({ shot }: { shot: ShotPlan }) {
           <p className="text-xs text-cinema-accent">镜头 {shot.id}</p>
           <h4 className="mt-1 text-base font-semibold text-white">{shot.type}</h4>
         </div>
-        <span className="rounded-full border border-white/10 px-2 py-1 text-xs text-gray-400">
+        <span className="shrink-0 rounded-full border border-white/10 px-2 py-1 text-xs text-gray-400">
           {shot.camera_movement}
         </span>
       </div>
@@ -25,19 +26,26 @@ function ShotCard({ shot }: { shot: ShotPlan }) {
 
       <div className="mt-4 rounded-lg bg-cinema-900 p-3">
         <p className="text-xs uppercase tracking-wide text-gray-500">Diffusion Prompt</p>
-        <p className="mt-2 text-sm leading-6 text-gray-200">{shot.prompt}</p>
+        <div className="mt-2">
+          <ExpandableText
+            text={shot.prompt}
+            className="text-sm leading-6 text-gray-200"
+            expandLabel="展开完整 Prompt"
+            collapseLabel="收起 Prompt"
+          />
+        </div>
       </div>
 
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() => setJsonExpanded((value) => !value)}
         className="mt-3 text-xs text-cinema-accent hover:text-cinema-accent-dim"
       >
-        {expanded ? "收起 LLM JSON" : "查看 LLM JSON"}
+        {jsonExpanded ? "收起 LLM JSON" : "查看 LLM JSON"}
       </button>
 
-      {expanded && (
-        <pre className="mt-2 overflow-x-auto rounded-lg bg-black/40 p-3 text-xs text-gray-300">
+      {jsonExpanded && (
+        <pre className="cinema-scroll mt-2 max-h-64 overflow-auto rounded-lg border border-white/5 bg-black/40 p-3 text-xs leading-5 text-gray-300">
           {JSON.stringify(shot.llm_json ?? {}, null, 2)}
         </pre>
       )}

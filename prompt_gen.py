@@ -48,20 +48,19 @@ def build_prompt_spec(
         else GenerationConfig.from_mapping(config)
     )
     shot_context = shot if isinstance(shot, ShotContext) else ShotContext.from_mapping(shot)
-
     subject_hint = _extract_subject_hint(shot_context.description)
+
+    # Keep the final prompt Chinese-first for models like Doubao Seedream.
+    # Avoid appending English metadata that dilutes the LLM-crafted visual description.
     fragments = _dedupe_fragments(
         [
             shot_context.prompt,
-            shot_context.raw_prompt or "",
-            f"shot type: {shot_context.shot_type}",
-            f"camera movement: {shot_context.camera_movement}",
-            f"subject: {subject_hint}" if subject_hint else "",
-            shot_context.reason or "",
+            f"景别：{shot_context.shot_type}",
+            f"运镜：{shot_context.camera_movement}",
             generation_config.prompt_suffix,
         ]
     )
-    positive_prompt = ", ".join(fragments)
+    positive_prompt = "，".join(fragments)
 
     output_basename = (
         f"shot_{shot_context.shot_id:02d}_{_slugify(shot_context.shot_type)}."

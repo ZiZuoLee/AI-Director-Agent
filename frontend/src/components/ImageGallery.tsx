@@ -1,4 +1,5 @@
 import type { GeneratedImage } from "../types";
+import ExpandableText from "./ExpandableText";
 
 interface ImageGalleryProps {
   images: GeneratedImage[];
@@ -32,7 +33,12 @@ export default function ImageGallery({ images, title = "生成图像" }: ImageGa
             )}
             <figcaption className="space-y-1 p-3 text-xs text-gray-400">
               <p className="font-medium text-cinema-accent">镜头 {image.shot_id}</p>
-              <p className="line-clamp-3 text-gray-500">{image.prompt}</p>
+              <ExpandableText
+                text={image.prompt}
+                className="text-gray-500"
+                expandLabel="展开完整分镜文案"
+                collapseLabel="收起分镜文案"
+              />
             </figcaption>
           </figure>
         ))}
