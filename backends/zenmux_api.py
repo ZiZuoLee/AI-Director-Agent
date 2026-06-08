@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Callable, Iterable, List, Optional, TypeVar
 
 from generation_types import GeneratedImage, GenerationConfig, GenerationError, PromptSpec
 
 from .base import GenerationBackend
+
+try:
+    import httpx
+except ImportError:  # pragma: no cover
+    httpx = None
 
 try:
     from google import genai
@@ -16,11 +22,18 @@ except ImportError:  # pragma: no cover
     genai = None
     types = None
 
+T = TypeVar("T")
+
 
 class ZenMuxImageBackend(GenerationBackend):
     """Generate and edit images via ZenMux's google-genai-compatible API."""
 
     backend_name = "zenmux_api"
+    _max_attempts = 3
+
+    def __init__(self, config: GenerationConfig):
+        super().__init__(config)
+        self._client_instance = None
 
     def _load_env_file(self) -> None:
         env_path = self.config.zenmux_env_path
@@ -152,25 +165,78 @@ class ZenMuxImageBackend(GenerationBackend):
             },
         )
 
+    def _is_retriable_error(self, exc: Exception) -> bool:
+        message = str(exc).lower()
+        name = type(exc).__name__.lower()
+        tokens = (
+            "disconnect",
+            "disconnected",
+            "remote",
+            "timeout",
+            "connection",
+            "reset",
+            "protocol",
+            "temporarily",
+            "429",
+            "502",
+            "503",
+            "504",
+        )
+        return any(token in message or token in name for token in tokens)
+
+    def _call_with_retry(self, operation_name: str, callback: Callable[[], T]) -> T:
+        last_error: Exception | None = None
+        for attempt in range(self._max_attempts):
+            try:
+                return callback()
+            except Exception as exc:  # noqa: BLE001 - retry only known transient failures
+                last_error = exc
+                if not self._is_retriable_error(exc) or attempt >= self._max_attempts - 1:
+                    raise GenerationError(f"ZenMux {operation_name} failed: {exc}") from exc
+                time.sleep(min(8.0, 2.0 ** attempt))
+        raise GenerationError(f"ZenMux {operation_name} failed: {last_error}")
+
     def _client(self):
         if genai is None or types is None:
             raise GenerationError("The ZenMux backend requires google-genai to be installed.")
-        return genai.Client(
+        if self._client_instance is not None:
+            return self._client_instance
+
+        timeout_ms = int(self.config.request_timeout * 1000)
+        http_options_kwargs = {
+            "api_version": "v1",
+            "base_url": self.config.zenmux_base_url.rstrip("/"),
+            "timeout": timeout_ms,
+            "retry_options": types.HttpRetryOptions(
+                attempts=3,
+                initial_delay=2.0,
+                max_delay=20.0,
+            ),
+        }
+        if httpx is not None:
+            http_options_kwargs["httpx_client"] = httpx.Client(
+                trust_env=False,
+                timeout=httpx.Timeout(self.config.request_timeout, connect=30.0),
+            )
+
+        self._client_instance = genai.Client(
             api_key=self._api_key(),
             vertexai=True,
-            http_options=types.HttpOptions(
-                api_version="v1",
-                base_url=self.config.zenmux_base_url.rstrip("/"),
-            ),
+            http_options=types.HttpOptions(**http_options_kwargs),
         )
+        return self._client_instance
 
     def generate_one(self, spec: PromptSpec, *, seed_override: Optional[int] = None) -> GeneratedImage:
         client = self._client()
-        response = client.models.generate_images(
-            model=self.config.model_id,
-            prompt=self._request_prompt(spec),
-            config=self._generate_config(spec, seed_override=seed_override),
-        )
+
+        def _invoke():
+            return client.models.generate_images(
+                model=self.config.model_id,
+                prompt=self._request_prompt(spec),
+                config=self._generate_config(spec, seed_override=seed_override),
+            )
+
+        response = self._call_with_retry(f"generate_images for shot {spec.shot_id}", _invoke)
         generated_images = getattr(response, "generated_images", None)
         if not generated_images:
             raise GenerationError(f"ZenMux did not return generated images for shot {spec.shot_id}.")
@@ -197,17 +263,21 @@ class ZenMuxImageBackend(GenerationBackend):
             raise GenerationError("The ZenMux backend requires google-genai to be installed.")
         client = self._client()
         reference_image = types.Image.from_file(location=reference_image_path)
-        response = client.models.edit_image(
-            model=self.config.edit_model_id or self.config.model_id,
-            prompt=self._request_prompt(spec),
-            reference_images=[
-                types.RawReferenceImage(
-                    reference_id=1,
-                    reference_image=reference_image,
-                )
-            ],
-            config=self._edit_config(spec, seed_override=seed_override),
-        )
+
+        def _invoke():
+            return client.models.edit_image(
+                model=self.config.edit_model_id or self.config.model_id,
+                prompt=self._request_prompt(spec),
+                reference_images=[
+                    types.RawReferenceImage(
+                        reference_id=1,
+                        reference_image=reference_image,
+                    )
+                ],
+                config=self._edit_config(spec, seed_override=seed_override),
+            )
+
+        response = self._call_with_retry(f"edit_image for shot {spec.shot_id}", _invoke)
         generated_images = getattr(response, "generated_images", None)
         if not generated_images:
             raise GenerationError(f"ZenMux did not return edited images for shot {spec.shot_id}.")

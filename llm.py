@@ -17,8 +17,21 @@ except ImportError:  # pragma: no cover
     requests = None
 
 DEFAULT_LLM_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_LLM_MODEL = "deepseek/deepseek-v4-flash:free"
+DEFAULT_LLM_MODEL = "deepseek/deepseek-v4-flash"
+DEFAULT_LLM_TIMEOUT = 90
 DOTENV_PATH = ".env"
+
+_http_session: "requests.Session | None" = None
+
+
+def _get_http_session() -> "requests.Session":
+    """Reuse a session that ignores broken system proxy settings."""
+
+    global _http_session
+    if _http_session is None:
+        _http_session = requests.Session()
+        _http_session.trust_env = False
+    return _http_session
 
 
 def load_dotenv(dotenv_path: str = DOTENV_PATH) -> None:
@@ -37,19 +50,103 @@ def load_dotenv(dotenv_path: str = DOTENV_PATH) -> None:
                 os.environ[key] = value
 
 
+def _strip_code_fence(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped, flags=re.I)
+        stripped = re.sub(r"\s*```$", "", stripped)
+    return stripped.strip()
+
+
 def _extract_json_string(text: str) -> str:
-    match = re.search(r"(\{.*\})", text, re.S)
+    cleaned = _strip_code_fence(text)
+    match = re.search(r"(\{.*\})", cleaned, re.S)
     if not match:
         raise ValueError("无法从 LLM 响应中提取 JSON。")
     return match.group(1)
 
 
+def _sanitize_json_control_chars(content: str) -> str:
+    """Escape raw newlines/tabs/control chars that appear inside JSON strings."""
+
+    result: list[str] = []
+    in_string = False
+    escaped = False
+
+    for char in content:
+        if escaped:
+            result.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            result.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            result.append(char)
+            continue
+        if in_string:
+            if char == "\n":
+                result.append("\\n")
+                continue
+            if char == "\r":
+                result.append("\\r")
+                continue
+            if char == "\t":
+                result.append("\\t")
+                continue
+            if ord(char) < 32:
+                result.append(f"\\u{ord(char):04x}")
+                continue
+        result.append(char)
+
+    return "".join(result)
+
+
+def _unescape_json_string(value: str) -> str:
+    return (
+        value.replace("\\n", "\n")
+        .replace("\\r", "\r")
+        .replace("\\t", "\t")
+        .replace('\\"', '"')
+        .replace("\\\\", "\\")
+    )
+
+
+def _fallback_parse_fields(content: str) -> Dict[str, object]:
+    fields: Dict[str, object] = {}
+    for key in ("shot_type", "camera_movement", "prompt", "description", "reason"):
+        match = re.search(rf'"{re.escape(key)}"\s*:\s*"((?:\\.|[^"\\])*)"', content, re.S)
+        if match:
+            fields[key] = _unescape_json_string(match.group(1))
+    if not fields.get("prompt"):
+        raise ValueError("无法从 LLM 响应中解析必要字段。")
+    return fields
+
+
 def _parse_json(content: str) -> Dict[str, object]:
+    candidates = [
+        content,
+        _sanitize_json_control_chars(content),
+        content.replace("'", '"'),
+        _sanitize_json_control_chars(content.replace("'", '"')),
+    ]
+    last_error: json.JSONDecodeError | None = None
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError as exc:
+            last_error = exc
+
     try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        normalized = content.replace("'", '"')
-        return json.loads(normalized)
+        return _fallback_parse_fields(content)
+    except ValueError as exc:
+        if last_error is not None:
+            raise last_error from exc
+        raise
 
 
 def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
@@ -71,7 +168,7 @@ def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
             "content": (
                 "你是电影分镜设计师。请根据以下中文镜头提示输出一个JSON对象，"
                 "该对象包含字段 shot_type, camera_movement, prompt, description, reason。"
-                "仅返回JSON，不要Markdown或额外解释。"
+                "仅返回单行合法JSON，字符串内不要换行，不要Markdown或额外解释。"
                 "\n\n提示内容：\n" + prompt
             ),
         }
@@ -81,17 +178,20 @@ def process_prompt_with_llm(prompt: str) -> Dict[str, object]:
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    payload = {
+    payload: Dict[str, object] = {
         "model": llm_model,
         "messages": messages,
-        "reasoning": {"enabled": True},
+        "response_format": {"type": "json_object"},
     }
+    if "zenmux.ai" in llm_api_url:
+        payload["reasoning"] = {"enabled": True}
 
-    response = requests.post(
+    timeout = int(os.getenv("LLM_TIMEOUT", DEFAULT_LLM_TIMEOUT))
+    response = _get_http_session().post(
         url=llm_api_url,
         headers=headers,
         data=json.dumps(payload, ensure_ascii=False),
-        timeout=20,
+        timeout=timeout,
     )
     response.raise_for_status()
     data = response.json()

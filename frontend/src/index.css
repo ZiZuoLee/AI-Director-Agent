@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --color-cinema-950: #0a0a0f;
+  --color-cinema-900: #12121a;
+  --color-cinema-800: #1c1c28;
+  --color-cinema-700: #2a2a3d;
+  --color-cinema-accent: #e8b86d;
+  --color-cinema-accent-dim: #b8894a;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: radial-gradient(circle at top, #1a1a2e 0%, var(--color-cinema-950) 55%);
+  color: #f3f4f6;
+}
