@@ -5,11 +5,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from backends.zenmux_api import ZenMuxImageBackend
-from director_memory import DirectorMemory, build_director_memory
-from generation_types import GenerationConfig, PromptSpec, ShotContext
-from image_critic import CriticScore, score_candidate
-from vision_analyzer import VisionAnalyzer
+from .backends.zenmux_api import ZenMuxImageBackend
+from .director_memory import DirectorMemory, build_director_memory
+from .generation_types import GenerationConfig, PromptSpec, ShotContext
+from .image_critic import CriticScore, score_candidate
+from .vision_analyzer import VisionAnalyzer
 
 
 @dataclass

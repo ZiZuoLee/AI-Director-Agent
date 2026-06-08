@@ -1,0 +1,295 @@
+\documentclass{article}
+\usepackage{iclr2025_conference,times}
+
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{xcolor}
+
+\definecolor{blockblue}{RGB}{245,248,252}
+\definecolor{linegray}{RGB}{120,120,120}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\title{AI Director Agent: Explainable Chinese Storyboard Generation\\[0.25em] with Hybrid Planning and Director-Level Image Control}
+
+\author{Lee Zi Zuo \And Thai Tian Qi \And Carole Hew \\
+College of Computer Science and Artificial Intelligence \\
+Fudan University \\
+Shanghai, China
+}
+
+\iclrfinalcopy
+
+\makeatletter
+\def\@maketitle{%
+  \vbox{\hsize\textwidth
+    \centering
+    {\LARGE\sc \@title\par}
+    \vskip 1.4em
+    {\large\bfseries
+      \begin{tabular}{c@{\hspace{4.5em}}c@{\hspace{4.5em}}c}
+        Lee Zi Zuo & Thai Tian Qi & Carole Hew \\
+      \end{tabular}\par}
+    \vskip 0.8em
+    {\normalsize
+      College of Computer Science and Artificial Intelligence\\
+      Fudan University\\
+      Shanghai, China\par}
+    \vskip 0.35in minus 0.1in
+  }%
+}
+\makeatother
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present \textbf{AI Director Agent}, an end-to-end system that converts short Chinese screenplays into cinematic storyboard panels with explainable intermediate reasoning.
+Unlike single-prompt text-to-image tools, our pipeline decomposes narrative text into semantically parsed shots, applies cinematography rules, refines diffusion prompts with a large language model (LLM), generates images through a pluggable backend, and composes a horizontal storyboard for presentation.
+A key contribution is a \textbf{hybrid rule--LLM planner} that guarantees interpretable shot progression (e.g., pursuit $\rightarrow$ tracking shot $\rightarrow$ close-up $\rightarrow$ medium shot) while producing Chinese-first prompts optimized for models such as Doubao Seedream.
+We further introduce an optional \textbf{Director Agent mode} with cross-shot memory, multi-candidate generation, heuristic and vision-based critics, edit-image continuity, and reflection logs.
+The system is delivered as a deployable web application (React + FastAPI) with asynchronous tasks and server-sent event (SSE) progress streaming.
+Experiments on chase, romance, and suspense prompts demonstrate coherent multi-shot plans and usable storyboard outputs.
+\textbf{Code:} \url{https://github.com/ZiZuoLee/AI-Director-Agent}
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Storyboarding is a core pre-production step in filmmaking: directors translate screenplay beats into a sequence of framed shots before shooting or final rendering.
+Recent text-to-image models can produce impressive single frames, but they lack (i)~\textit{shot decomposition}, (ii)~\textit{cinematographic reasoning}, and (iii)~\textit{inspectable intermediate representations}.
+Course projects in computer graphics therefore benefit from systems that are not only generative, but also \textit{agentic} and \textit{explainable}.
+
+We build \textbf{AI Director Agent} to address the following question:
+\emph{How can a Chinese short story be automatically transformed into a multi-shot cinematic storyboard with transparent planning and optional director-level quality control?}
+
+Our contributions are fourfold:
+\begin{enumerate}[leftmargin=*, itemsep=2pt]
+  \item A \textbf{hybrid rule--LLM planner} that combines interpretable cinematography rules with LLM-based Chinese prompt refinement.
+  \item A \textbf{Director Agent loop} with memory, candidate search, heuristic and vision critics, and edit-reference continuity.
+  \item A \textbf{deployable three-layer system} (Agent / Generation / System) exposed through FastAPI and a React web UI.
+  \item An \textbf{explainable workflow} that surfaces parser tags, rule rationales, LLM JSON, and agent reflections to users.
+\end{enumerate}
+
+The minimum viable product (MVP) accepts one Chinese story, produces 3--5 shots, generates corresponding images, and merges them into a storyboard PNG.
+
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Text-to-Image and Creative Agents}
+Diffusion models such as Latent Diffusion \citep{rombach2022high} enable high-quality image synthesis from natural-language prompts, but are typically used in a single-shot manner without film grammar or narrative progression.
+Large language models \citep{brown2020language} support structured JSON planning; API aggregators such as OpenRouter \citep{openrouter2024} simplify access to multiple chat models.
+Our planner builds on this stack for Chinese prompt refinement.
+
+\subsection{Storyboard Pre-visualization}
+Traditional storyboarding relies on manual framing decisions (shot scale, camera movement, emotional emphasis).
+We encode a lightweight subset of these conventions as explicit rules rather than relying entirely on free-form LLM inference.
+
+\subsection{Agentic Image Pipelines}
+Recent systems combine tool use, memory, and critique loops for higher-quality media generation.
+We adopt this pattern in Director Agent mode via cross-shot memory, candidate search, heuristic scoring, and multimodal vision analysis.
+Implementation relies on FastAPI \citep{fastapi2024}, React \citep{react2025}, the Google GenAI SDK \citep{googlegenai2025}, Pillow \citep{pillow2025}, and ZenMux \citep{zenmux2025}.
+
+\section{Method}
+\label{sec:method}
+
+\subsection{System Architecture}
+The system follows a three-layer architecture aligned with our technical design document (TRD).
+Figure~\ref{fig:pipeline} summarizes the end-to-end data flow.
+
+\begin{figure}[t]
+\centering
+\fcolorbox{linegray}{blockblue}{%
+  \begin{minipage}{0.9\linewidth}
+    \centering
+    \vspace{0.55em}
+    {\bfseries Chinese Story Input}\\[0.35em]
+    $\downarrow$\\[0.2em]
+    {\bfseries Agent Layer}\\
+    {\small \textit{parser $\rightarrow$ rules $\rightarrow$ llm $\rightarrow$ planner}}\\[0.35em]
+    $\downarrow$\\[0.2em]
+    {\bfseries Generation Layer}\\
+    {\small \textit{prompt\_gen $\rightarrow$ generate / director\_agent}}\\[0.35em]
+    $\downarrow$\\[0.2em]
+    {\bfseries System Layer}\\
+    {\small \textit{FastAPI orchestration + React UI + SSE progress}}\\[0.35em]
+    $\downarrow$\\[0.2em]
+    {\bfseries Storyboard PNG Output}\\[0.55em]
+  \end{minipage}}
+\caption{End-to-end pipeline of AI Director Agent.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Agent Layer: Hybrid Shot Planning}
+
+\textbf{Semantic parsing.}
+Given input text $T$, \texttt{parser.py} segments sentences and extracts actions, emotions, locations, characters, and themes using bilingual keyword rules.
+This step is intentionally lightweight and deterministic for reproducibility.
+
+\textbf{Rule engine.}
+\texttt{rules.py} maps semantic tags to cinematography templates.
+For example, pursuit-related actions trigger a progression: \textit{tracking shot} $\rightarrow$ \textit{close-up} $\rightarrow$ \textit{medium shot}.
+Camera movement (e.g., dolly, slow push-in, static) is derived from shot type and action cues.
+
+\textbf{LLM prompt design.}
+For each shot $i \in \{1,\dots,N\}$, the planner builds a Chinese seed prompt and calls an OpenRouter-compatible chat model \citep{openrouter2024,deepseek2025}.
+The model returns JSON fields: \texttt{shot\_type}, \texttt{camera\_movement}, \texttt{prompt}, \texttt{description}, and \texttt{reason}.
+We enforce Chinese-only diffusion prompts (50--120 characters), concrete character appearance, and per-shot narrative beats.
+Shot~1's appearance description is reused as a \textit{character anchor} for later shots.
+The planner output is $\mathcal{P} = \{\text{input\_text}, \text{parsed}, \text{shots}[1..N]\}$.
+
+\subsection{Generation Layer}
+
+\textbf{Prompt specification.}
+\texttt{prompt\_gen.py} converts each planned shot into a backend-neutral \texttt{PromptSpec} with Chinese-first positive prompts, per-shot seeds, and 16:9 layout defaults.
+
+\textbf{Simple mode.}
+\texttt{generate\_images()} invokes the ZenMux backend with Doubao Seedream \citep{seedream2025} to produce one image per shot.
+
+\textbf{Director Agent mode.}
+\texttt{DirectorAgent} executes a per-shot quality-control loop (Algorithm~\ref{alg:director}).
+
+\begin{algorithm}[t]
+\caption{Director Agent per-shot loop}
+\label{alg:director}
+\begin{algorithmic}[1]
+  \STATE Update cross-shot memory for characters and scenes
+  \STATE Select strategy: \texttt{base}, \texttt{continuity\_anchor}, \texttt{scene\_anchor}, or \texttt{edit\_reference}
+  \STATE Generate $K$ candidate images with seed offsets
+  \STATE Score candidates with heuristic critic; re-rank top items with vision LLM
+  \IF{best score $< \tau$ and attempts $< M$}
+    \STATE Retry generation with adjusted strategy/prompt
+  \ENDIF
+  \STATE Log reflection (strategy, issue, action, score, rationale)
+  \STATE Optionally edit from previous best frame for continuity
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{System Layer and Web UI}
+\texttt{main.py} orchestrates planning, generation, and storyboard merging with progress callbacks.
+\texttt{api.py} exposes REST endpoints and SSE events for asynchronous tasks.
+\texttt{image\_merge.py} resizes shots, concatenates them horizontally, and exports \texttt{storyboard.png}.
+The React UI provides script input, mode controls, and three inspection tabs: plan, images/storyboard, and agent logs.
+
+\subsection{Design Highlights}
+\label{sec:innovations}
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item \textbf{Hybrid rule--LLM planning} ensures film-language structure while LLMs refine visual prompts.
+  \item \textbf{Chinese-first prompt chain} improves semantic alignment for Seedream-class backends.
+  \item \textbf{Explainable artifacts} make parser tags, rule reasons, LLM JSON, and reflections user-visible.
+  \item \textbf{Production-oriented delivery} replaces CLI-only scripts with async API, SSE, and a full web demo.
+\end{itemize}
+
+\section{Experiments and Results}
+\label{sec:experiments}
+
+\subsection{Experimental Setup}
+We evaluate three representative Chinese prompts with a fixed generation configuration (Table~\ref{tab:setup}).
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Setting} & \textbf{Value} \\
+\midrule
+Test scenarios & Pursuit, Romance, Suspense \\
+Shots per story & $N = 3$ \\
+Resolution / aspect & $1024 \times 576$, 16:9 \\
+Planning model & OpenRouter DeepSeek \\
+Image model & ZenMux Doubao Seedream \\
+Generation modes & Simple and Director Agent \\
+\bottomrule
+\end{tabular}
+\caption{Experimental configuration.}
+\label{tab:setup}
+\end{table}
+
+\textbf{Pursuit.} A protagonist is chased through a dark alley.
+\textbf{Romance.} A campus rooftop confession at dusk.
+\textbf{Suspense.} A detective discovers footprints in an abandoned factory.
+
+\subsection{Qualitative Results}
+The hybrid planner produces distinct per-shot intents (e.g., tracking $\rightarrow$ emotional close-up $\rightarrow$ confrontation medium shot) and Chinese prompts with concrete appearance attributes.
+Simple mode yields usable cinematic frames and a merged storyboard preview in the UI.
+Director mode improves cross-shot consistency when edit-reference is triggered, at higher latency.
+Users can inspect parser tags, per-shot prompts, generated images, and (in agentic mode) candidate rankings and reflection logs.
+
+\subsection{Observations}
+Table~\ref{tab:compare} summarizes mode-level trade-offs observed in our runs.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Aspect} & \textbf{Simple Mode} & \textbf{Director Mode} \\
+\midrule
+Latency & Low & 3--5$\times$ slower \\
+Cross-shot consistency & Prompt anchoring & Memory + edit-reference \\
+Explainability & Plan JSON only & Scores + reflection logs \\
+Best use case & Fast demo / MVP & Higher-quality continuity \\
+\bottomrule
+\end{tabular}
+\caption{Comparison between generation modes.}
+\label{tab:compare}
+\end{table}
+
+Rule-only prompts are less visually specific than LLM-refined prompts.
+Chinese-first prompt assembly improves semantic alignment for Seedream compared with English suffixes.
+
+\subsection{Limitations}
+\begin{itemize}[leftmargin=*, itemsep=2pt]
+  \item Parser is keyword-based rather than LLM-semantic parsing.
+  \item Character consistency relies on prompt anchoring and optional edit-reference.
+  \item Task state is in-memory and not persisted across server restarts.
+  \item Image backend is API-based (ZenMux) rather than local diffusion pipelines.
+\end{itemize}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented AI Director Agent, a deployable Chinese storyboard generation system that combines interpretable cinematography rules, LLM prompt design, image synthesis, optional director-level critique loops, and storyboard composition in a unified web workflow.
+The project demonstrates how agentic decomposition and explainable intermediate representations can elevate text-to-image from single-frame generation to structured cinematic pre-visualization.
+Future work includes LLM-based screenplay parsing, plan-then-edit user workflows, persistent task queues, additional image backends, and video/animatic export.
+
+\section*{Team Contributions}
+\label{sec:team}
+
+Division of labor follows the repository TRD (Agent / Generation / System layers) and is corroborated by Git commit history.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{@{}l l l X@{}}
+\toprule
+\textbf{Name} & \textbf{ID} & \textbf{Role} & \textbf{Contributions} \\
+\midrule
+Lee Zi Zuo (Lv Zizhuo) & 23300246003 & Agent &
+PRD/TRD; parser; rule engine; planner; OpenRouter LLM workflow. \\
+Thai Tian Qi (Dai Tianqi) & 23300246006 & Generation &
+ZenMux backend; prompt spec; Director Agent; memory and critic modules. \\
+Carole Hew (Qiu Jiakun) & 23300246008 & System &
+FastAPI + SSE; React UI; pipeline orchestration; storyboard merge. \\
+\bottomrule
+\end{tabularx}
+\caption{Team roster and division of labor.}
+\label{tab:team}
+\end{table}
+
+\bibliography{references}
+\bibliographystyle{iclr2025_conference}
+
+\end{document}

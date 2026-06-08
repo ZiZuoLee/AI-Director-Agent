@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Iterable, List
 
-from generation_types import GeneratedImage, GenerationConfig, PromptSpec
+from ..generation_types import GeneratedImage, GenerationConfig, PromptSpec
 
 
 class GenerationBackend(ABC):

@@ -1,11 +1,14 @@
-"""Direct ZenMux image-generation smoke test using shot JSON input."""
+"""Full director-agent smoke test using memory, candidate search, ranking, and retries."""
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-from generate import generate_from_plan
-from generation_types import PromptSpec
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from backend.generation.director_agent import DirectorAgent
+from backend.paths import IMAGES_DIR, ZENMUX_ENV_FILE
 
 
 SAMPLE_SHOTS = [
@@ -40,56 +43,32 @@ SAMPLE_SHOTS = [
 
 CONFIG = {
     "backend": "zenmux_api",
-    "model_id": "google/gemini-2.5-flash-image",
-    "zenmux_env_path": "zenmux.env",
-    "output_dir": "images",
+    "model_id": "bytedance/doubao-seedream-5.0-lite",
+    "edit_model_id": "bytedance/doubao-seedream-5.0-lite",
+    "zenmux_env_path": str(ZENMUX_ENV_FILE),
+    "output_dir": str(IMAGES_DIR),
     "width": 1024,
     "height": 576,
     "zenmux_image_size": "1K",
     "zenmux_aspect_ratio": "16:9",
     "zenmux_output_mime_type": "image/png",
     "zenmux_seed": 20260605,
+    "zenmux_enhance_prompt": False,
+    "candidate_count": 2,
+    "max_attempts": 2,
+    "score_threshold": 0.78,
+    "vision_enabled": True,
+    "vision_model": "z-ai/glm-4.6v-flash-free",
+    "vision_shortlist_size": 1,
 }
 
 
-def build_direct_prompt_specs() -> list[PromptSpec]:
-    specs: list[PromptSpec] = []
-    for shot in SAMPLE_SHOTS:
-        specs.append(
-            PromptSpec(
-                shot_id=shot["id"],
-                positive_prompt=shot["prompt"],
-                negative_prompt="",
-                width=CONFIG["width"],
-                height=CONFIG["height"],
-                steps=1,
-                guidance_scale=0.0,
-                seed=CONFIG["zenmux_seed"],
-                output_name=f"shot_{shot['id']:02d}_zenmux.png",
-                style_preset="zenmux_direct_prompt",
-                metadata={
-                    "description": shot["description"],
-                    "shot_type": shot["type"],
-                    "camera_movement": shot["camera_movement"],
-                    "reason": shot["reason"],
-                },
-            )
-        )
-    return specs
-
-
 def main() -> None:
-    prompt_specs = build_direct_prompt_specs()
-    print("ZenMux prompt specs:")
-    for spec in prompt_specs:
-        print(json.dumps(spec.to_dict(), ensure_ascii=False, indent=2))
-
-    results = generate_from_plan(prompt_specs, config=CONFIG)
-    print("\nGenerated images:")
-    for item in results:
-        print(json.dumps(item, ensure_ascii=False, indent=2))
+    agent = DirectorAgent(CONFIG)
+    result = agent.run(SAMPLE_SHOTS)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
-    Path("images").mkdir(parents=True, exist_ok=True)
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     main()

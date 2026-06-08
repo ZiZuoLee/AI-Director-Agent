@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Mapping, Sequence
 
-from backends import ZenMuxImageBackend
-from director_agent import DirectorAgent
-from generation_types import GeneratedImage, GenerationConfig, GenerationError, PromptSpec, ShotContext
-from prompt_gen import build_prompt_specs
+from .backends import ZenMuxImageBackend
+from .director_agent import DirectorAgent
+from .generation_types import GeneratedImage, GenerationConfig, GenerationError, PromptSpec, ShotContext
+from .prompt_gen import build_prompt_specs
 
 SUPPORTED_BACKENDS = {
     "zenmux_api": ZenMuxImageBackend,

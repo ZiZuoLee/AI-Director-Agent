@@ -1,173 +1,91 @@
 # AI-Director-Agent
 Final Course Project of Fudan University Computer Graph A
 
-## LLM Prompt Workflow
+## Project Layout
 
-The Agent Layer builds Chinese prompt design instructions and sends them to a Chat Completions-compatible API.
-By default it uses OpenRouter, but you can override the URL/model/key locally in `.env` for testing.
-The model is expected to return a JSON object containing fields like `shot_type`, `camera_movement`, `prompt`, `description`, and `reason`.
-
-## Generation Layer
-
-The image-generation pipeline is separated behind a stable interface and currently uses the ZenMux Vertex AI image-generation API via the `google-genai` client.
-
-Core files:
-
-- `prompt_gen.py`: converts planner shots into validated diffusion prompt specs
-- `generate.py`: single public entry point for image generation
-- `generation_types.py`: shared schemas, config, and validation
-- `backends/zenmux_api.py`: ZenMux Gemini image generation backend
-- `test_zenmux_api.py`: direct smoke test that bypasses the parser/planner/LLM stack
-- `director_memory.py`: cross-shot memory for characters and scenes
-- `image_critic.py`: candidate scoring and ranking
-- `director_agent.py`: director loop with retries, strategy selection, and reflection logs
-- `test_director_agent.py`: full agent-mode smoke test using candidate search and edit-based continuity
-
-Example usage:
-
-```python
-from planner import plan_shots
-from generate import build_generation_plan, generate_images
-
-plan = plan_shots("主角在黑暗的城市小巷中奔跑，被神秘身影追赶。", count=3)
-
-prompt_specs = build_generation_plan(
-    plan["shots"],
-    config={
-        "backend": "zenmux_api",
-        "model_id": "google/gemini-2.5-flash-image",
-        "zenmux_env_path": "zenmux.env",
-        "output_dir": "images",
-        "width": 1024,
-        "height": 1024,
-        "zenmux_image_size": "1K",
-        "zenmux_seed": 20260605,
-    },
-)
-
-images = generate_images(
-    plan["shots"],
-    config={
-        "backend": "zenmux_api",
-        "model_id": "google/gemini-2.5-flash-image",
-        "zenmux_env_path": "zenmux.env",
-        "output_dir": "images",
-    },
-)
+```text
+AI-Director-Agent/
+├── api.py                 # API entry (uvicorn api:app)
+├── start_backend.ps1      # Recommended backend startup script
+├── backend/
+│   ├── agent/             # Parser, rules, planner, LLM
+│   ├── generation/        # Prompt gen, image gen, director agent
+│   └── system/            # Pipeline orchestration, storyboard merge
+├── frontend/              # React + Vite UI
+├── docs/                  # PRD / TRD
+├── tests/                 # Smoke tests
+├── scripts/               # Local demo scripts
+├── images/                # Generated output (gitignored)
+└── report/                # English LaTeX report
 ```
 
-To change models, update `model_id` in config to any ZenMux Vertex image model you want to try.
+## Quick Start
 
-The API key is read from `ZENMUX_API_KEY` in the environment or from `zenmux.env`.
+### 1. Environment
 
-## Director Agent
+Copy `.env.example` to `.env` and set `OPENROUTER_API_KEY`.
+Copy `zenmux.env.example` to `zenmux.env` and set `ZENMUX_API_KEY`.
 
-For a more agentic pipeline, use `generate_images_agentic(...)` or run `test_director_agent.py`.
-The director agent adds:
-
-- cross-shot character and scene memory
-- candidate generation and ranking
-- retry loops with strategy selection
-- edit-image continuity passes using prior frames as references
-- reflection logs for each shot
-
-## Web UI
-
-The project includes a React frontend and FastAPI backend for interactive storyboard generation.
-
-### Start the backend
-
-Image generation requires `zenmux.env` with `ZENMUX_API_KEY`. Shot planning uses `OPENROUTER_API_KEY` in `.env`.
-
-```bash
-pip install -r requirements.txt
-```
-
-For real image generation, prefer the helper script (disables broken proxies and avoids hot-reload interruptions):
+### 2. Backend
 
 ```powershell
+pip install -r requirements.txt
 .\start_backend.ps1
 ```
 
-Manual start:
+Manual start (equivalent):
 
-```bash
+```powershell
 uvicorn api:app --host 127.0.0.1 --port 8000
 ```
 
-### Start the frontend (development)
+### 3. Frontend (development)
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Vite proxies `/api` requests to the backend on port `8000`.
+Open `http://127.0.0.1:5173`. Vite proxies `/api` to port `8000`.
 
-### Production build
+### 4. Production UI
 
-```bash
+```powershell
 cd frontend
 npm run build
-uvicorn api:app --host 127.0.0.1 --port 8000
+.\start_backend.ps1
 ```
 
-After building, FastAPI serves the compiled UI from `frontend/dist/`.
+FastAPI serves `frontend/dist/` when present.
 
-### API endpoints
+## API Endpoints
 
 - `GET /api/health`
-- `POST /api/plan` — shot planning only
-- `POST /api/generate` — async full pipeline (`mode`: `simple` or `agentic`)
-- `GET /api/tasks/{task_id}` — task status/result
-- `GET /api/tasks/{task_id}/events` — SSE progress stream
-- `GET /api/images/{filename}` — generated image files
+- `POST /api/plan`
+- `POST /api/generate` (`mode`: `simple` or `agentic`)
+- `GET /api/tasks/{task_id}`
+- `GET /api/tasks/{task_id}/events` (SSE)
+- `GET /api/images/{task_id}/{filename}`
 
-## Environment Setup
+## Development Scripts
 
-Copy `.env.example` to `.env` and fill in your OpenRouter API key:
+```powershell
+# Agent planning demo
+python scripts/agent_demo.py
 
-```text
-OPENROUTER_API_KEY=sk-xxx...
+# ZenMux smoke test
+python tests/test_zenmux_api.py
+
+# Director agent smoke test
+python tests/test_director_agent.py
 ```
-
-The project will load `OPENROUTER_API_KEY` from `.env` at runtime.
 
 ## Git Workflow
 
-Follow this branching workflow for all development:
-
-- Create a local feature/fix branch from `pre`:
+Create feature branches from `pre`, open PRs into `pre`, merge `pre` into `main` when stable.
 
 ```bash
 git checkout -b feature/your-feature
-```
-
-- Implement changes and commit locally. Push the branch to the remote:
-
-```bash
 git push -u origin feature/your-feature
 ```
-
-- Open a Pull Request (PR) / Merge Request (MR) from your branch into the `pre` branch (not into `main`).
-- After review and CI on `pre`, merge `pre` into `main` when the `pre` branch is considered stable.
-
-Typical high-level sequence:
-
-```bash
-# make a feature branch
-git checkout -b feature/awesome
-git push -u origin feature/awesome
-# open PR into 'pre' (via your Git host)
-# after PR review and merge into 'pre'
-git checkout main
-git pull origin main
-git merge origin/pre
-git push origin main
-```
-
-Notes:
-- Keep commits focused and small; open PRs against `pre` for review.
-- Do not push unfinished work to `main`; use `pre` as the integration branch.
-- Create a local backup branch before any destructive history rewrite: `git branch backup/whatever`.

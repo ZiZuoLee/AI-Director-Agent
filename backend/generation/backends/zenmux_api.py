@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Callable, Iterable, List, Optional, TypeVar
 
-from generation_types import GeneratedImage, GenerationConfig, GenerationError, PromptSpec
+from ..generation_types import GeneratedImage, GenerationConfig, GenerationError, PromptSpec
 
 from .base import GenerationBackend
 

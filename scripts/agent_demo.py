@@ -1,5 +1,10 @@
 """Simple Agent Layer demo for local testing."""
-from planner import plan_shots
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from backend.agent.planner import plan_shots
 
 
 def main() -> None:

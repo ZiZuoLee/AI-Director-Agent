@@ -10,9 +10,9 @@ from typing import Any, Dict, List
 
 from openai import OpenAI
 
-from director_memory import DirectorMemory
-from generation_types import GenerationConfig, GenerationError, ShotContext
-from llm import parse_llm_json_object
+from backend.agent.llm import parse_llm_json_object
+from .director_memory import DirectorMemory
+from .generation_types import GenerationConfig, GenerationError, ShotContext
 
 
 @dataclass

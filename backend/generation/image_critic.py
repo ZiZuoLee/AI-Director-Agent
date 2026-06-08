@@ -4,9 +4,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Iterable, List, Mapping
 
-from director_memory import CharacterMemory, DirectorMemory, SceneMemory
-from generation_types import GeneratedImage, ShotContext
-from vision_analyzer import VisionAnalysis
+from .director_memory import CharacterMemory, DirectorMemory, SceneMemory
+from .generation_types import GeneratedImage, ShotContext
+from .vision_analyzer import VisionAnalysis
 
 
 @dataclass

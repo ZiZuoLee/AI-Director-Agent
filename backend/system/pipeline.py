@@ -5,9 +5,10 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Mapping, Optional
 
-from generate import generate_images, generate_images_agentic
-from image_merge import merge_storyboard
-from planner import plan_shots
+from backend.agent.planner import plan_shots
+from backend.generation.generate import generate_images, generate_images_agentic
+from backend.paths import IMAGES_DIR, ZENMUX_ENV_FILE
+from backend.system.image_merge import merge_storyboard
 
 GenerationMode = Literal["simple", "agentic"]
 ProgressCallback = Callable[[Dict[str, Any]], None]
@@ -18,8 +19,8 @@ def _default_generation_config(task_id: str, overrides: Mapping[str, Any] | None
         "backend": "zenmux_api",
         "model_id": "bytedance/doubao-seedream-5.0-lite",
         "edit_model_id": "bytedance/doubao-seedream-5.0-lite",
-        "zenmux_env_path": "zenmux.env",
-        "output_dir": str(Path("images") / task_id),
+        "zenmux_env_path": str(ZENMUX_ENV_FILE),
+        "output_dir": str(IMAGES_DIR / task_id),
         "width": 1024,
         "height": 576,
         "zenmux_image_size": "1K",

@@ -11,6 +11,8 @@ import os
 import re
 from typing import Dict, Optional
 
+from backend.paths import ENV_FILE
+
 try:
     import requests
 except ImportError:  # pragma: no cover
@@ -19,7 +21,7 @@ except ImportError:  # pragma: no cover
 DEFAULT_LLM_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_LLM_MODEL = "deepseek/deepseek-v4-flash"
 DEFAULT_LLM_TIMEOUT = 90
-DOTENV_PATH = ".env"
+DOTENV_PATH = str(ENV_FILE)
 
 _http_session: "requests.Session | None" = None
 

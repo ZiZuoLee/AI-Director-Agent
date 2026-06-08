@@ -6,13 +6,13 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from parser import parse_scene
-from rules import (
+from .parser import parse_scene
+from .rules import (
     build_cinematic_prompt,
     determine_camera_movement,
     determine_shot_progression,
 )
-from llm import process_prompt_with_llm
+from .llm import process_prompt_with_llm
 
 
 class ShotPlanner:

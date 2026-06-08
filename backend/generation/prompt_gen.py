@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from typing import Any, Iterable, List, Mapping, Sequence
 
-from generation_types import GenerationConfig, GenerationError, PromptSpec, ShotContext
+from .generation_types import GenerationConfig, GenerationError, PromptSpec, ShotContext
 
 
 def _slugify(value: str) -> str:

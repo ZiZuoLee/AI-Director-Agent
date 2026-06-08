@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass, field
 import re
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
-from generation_types import ShotContext
+from .generation_types import ShotContext
 
 CHARACTER_PATTERN = re.compile(
     r"(同一名|一名)?(?P<phrase>(?:二十多岁|年轻|瘦削|黑发|男子|女子|男人|女人|主角|追击者|反派|英雄|孩子|女孩|男孩|他|她)[^，。,.]*)"

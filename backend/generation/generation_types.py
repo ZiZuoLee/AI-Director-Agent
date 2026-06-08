@@ -5,6 +5,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
+from backend.paths import ENV_FILE, IMAGES_DIR, ZENMUX_ENV_FILE
+
 
 class GenerationError(RuntimeError):
     """Raised when image generation cannot be completed safely."""
@@ -128,7 +130,7 @@ class GenerationConfig:
 
     backend: str = "zenmux_api"
     model_id: str = "bytedance/doubao-seedream-5.0-lite"
-    output_dir: Path = Path("images")
+    output_dir: Path = IMAGES_DIR
     image_format: str = "png"
     width: int = 1024
     height: int = 1024
@@ -144,7 +146,7 @@ class GenerationConfig:
     request_timeout: float = 120.0
     zenmux_base_url: str = "https://zenmux.ai/api/vertex-ai"
     zenmux_api_key: Optional[str] = None
-    zenmux_env_path: Path = Path("zenmux.env")
+    zenmux_env_path: Path = ZENMUX_ENV_FILE
     zenmux_image_size: str = "1K"
     zenmux_aspect_ratio: Optional[str] = None
     zenmux_output_mime_type: str = "image/png"
@@ -157,7 +159,7 @@ class GenerationConfig:
     vision_api_url: str = "https://zenmux.ai/api/v1/chat/completions"
     vision_model: str = "z-ai/glm-4.6v-flash-free"
     vision_api_key: Optional[str] = None
-    vision_env_path: Path = Path(".env")
+    vision_env_path: Path = ENV_FILE
     vision_shortlist_size: int = 1
     candidate_count: int = 3
     max_attempts: int = 2
